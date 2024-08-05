@@ -1,4 +1,4 @@
-use crate::lex::{Lex, Token};
+use crate::lex::{Lex, Token, Span};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'a> {
@@ -7,8 +7,8 @@ pub struct Scope<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Item<'a> {
-    Def(&'a str, Function<'a>),
-    Let(&'a str, Expr<'a>),
+    Def(Span<'a>, Function<'a>),
+    Let(Span<'a>, Expr<'a>),
     Expr(Expr<'a>),
 }
 
@@ -26,17 +26,17 @@ pub struct Function<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr<'a> {
-    Ident(&'a str),
-    Int(&'a str),
-    Float(&'a str),
-    Hex(&'a str),
-    Str(&'a str),
-    Array(&'a str, Vec<Expr<'a>>, &'a str),
-    Binary(Box<Expr<'a>>, &'a str, Box<Expr<'a>>),
-    Unary(&'a str, Box<Expr<'a>>),
-    Index(Box<Expr<'a>>, &'a str, Box<Expr<'a>>, &'a str),
-    Dot(Box<Expr<'a>>, &'a str, Box<Expr<'a>>),
-    Bad(&'a str),
+    Ident(Span<'a>),
+    Int(Span<'a>),
+    Float(Span<'a>),
+    Hex(Span<'a>),
+    Str(Span<'a>),
+    Array(Span<'a>, Vec<Expr<'a>>, Span<'a>),
+    Binary(Box<Expr<'a>>, Span<'a>, Box<Expr<'a>>),
+    Unary(Span<'a>, Box<Expr<'a>>),
+    Index(Box<Expr<'a>>, Span<'a>, Box<Expr<'a>>, Span<'a>),
+    Dot(Box<Expr<'a>>, Span<'a>, Box<Expr<'a>>),
+    Bad(Span<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -146,11 +146,11 @@ fn parse_atom<'l, 'a>(lex: &'l mut Lex<'a>) -> Expr<'a> {
         Token::Punct("-") => {
             Expr::Unary(lex.advance(), Box::new(parse_atom(lex)))
         }
-        Token::Punct("(") => {
-            let span1 = lex.advance();
-            let expr = Expr::parse(lex)
-            Expr::Paren(lex.advance(), parse_)
-        }
+        // Token::Punct("(") => {
+        //     let span1 = lex.advance();
+        //     let expr = Expr::parse(lex);
+        //     Expr::Paren(lex.advance(), parse_)
+        // }
         Token::Int(_) => {
             Expr::Int(lex.advance())
         }
@@ -165,7 +165,7 @@ fn parse_atom<'l, 'a>(lex: &'l mut Lex<'a>) -> Expr<'a> {
         }
         _ => {
             let span = lex.advance();
-            lex.error(span, format!("parse_atom"));
+            lex.error(span.clone(), format!("parse_atom"));
             return Expr::Bad(span)
         }
     };
@@ -177,7 +177,7 @@ fn parse_atom<'l, 'a>(lex: &'l mut Lex<'a>) -> Expr<'a> {
             if let Token::Punct("]") = lex.peek() {
                 lex.advance();
             } else {
-                lex.error(rspan, format!("Expected ]"));
+                lex.error(rspan.clone(), format!("Expected ]"));
             }
             Expr::Index(Box::new(prefix), lspan, Box::new(expr), rspan)
         }

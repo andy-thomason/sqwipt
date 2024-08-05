@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token<'a> {
     Punct(&'a str),
@@ -13,6 +15,17 @@ pub enum Token<'a> {
     Eof(&'a str),
     UnknownToken(&'a str),
     UnterminatedString(&'a str),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Span<'a>(&'a str);
+
+impl<'a> Deref for Span<'a> {
+    type Target = &'a str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -35,22 +48,22 @@ impl<'a> Lex<'a> {
         s
     }
 
-    pub fn error(&mut self, span: &str, text: String) {
-        eprintln!("error {text} at {span}");
+    pub fn error(&mut self, span: Span<'a>, text: String) {
+        eprintln!("error {text} at {span:?}");
     }
 
     pub fn peek(&self) -> &Token<'a> {
         &self.peek
     }
 
-    pub fn advance(&mut self) -> &'a str {
+    pub fn advance(&mut self) -> Span<'a> {
         let span = self.span();
         self.peek = self.next();
         span
     }
 
-    pub fn span(&self) -> &'a str {
-        match self.peek() {
+    pub fn span(&self) -> Span<'a> {
+        Span(match self.peek() {
             Token::Punct(span) |
             Token::Int(span) |
             Token::Float(span) |
@@ -64,7 +77,7 @@ impl<'a> Lex<'a> {
             Token::Eof(span) |
             Token::UnknownToken(span) |
             Token::UnterminatedString(span) => span,
-        }
+        })
     }
 
     pub fn next(&mut self) -> Token<'a> {
