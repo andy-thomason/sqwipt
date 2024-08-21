@@ -13,13 +13,3 @@ pub struct Error {
 pub struct Sqwipt {
 
 }
-
-
-// impl Sqwipt {
-//     pub fn new() -> Self {
-//         Sqwipt {
-
-//         }
-//     }
-
-// }

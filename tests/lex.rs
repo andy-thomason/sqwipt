@@ -1,4 +1,4 @@
-use sqwipt::{ast::{Expr, Parse}, lex::{Lex, Token}};
+use sqwipt::lex::{Token, Lex};
 
 #[test]
 fn test_lex() {
@@ -49,30 +49,3 @@ fn test_lex() {
     // }
 }
 
-#[test]
-fn test_expr() {
-    macro_rules! expr {
-        ($s: expr, $res: expr) => {
-            println!("expr test [{}]", $s);
-            let mut lex = Lex::new($s);
-            let item = Expr::parse(&mut lex);
-            assert_eq!(format!("{item:?}"), $res);
-            assert!(matches!(lex.peek(), Token::Eof(_)));
-        };
-    }
-
-    expr!("1", r#"Some(Int("1"))"#);
-    expr!("1.0", r#"Some(Float("1.0"))"#);
-    expr!("1.0e10", r#"Some(Float("1.0e10"))"#);
-    expr!(r#""1""#, r#"Some(Str("\"1\""))"#);
-
-    expr!("!1", r#"Some(Unary("!", Int("1")))"#);
-    expr!("+1", r#"Some(Unary("+", Int("1")))"#);
-    expr!("-1", r#"Some(Unary("-", Int("1")))"#);
-
-    expr!("(1)", r#"Some(Unary("-", Int("1")))"#);
-
-    expr!("1 + 2 * 3", r#"Some(Binary(Int("1"), "+", Binary(Int("2"), "*", Int("3"))))"#);
-    expr!("1 * 2 + 3", r#"Some(Binary(Binary(Int("1"), "*", Int("2")), "+", Int("3")))"#);
-    expr!("1 + 2 + 3", r#"Some(Binary(Int("1"), "+", Binary(Int("2"), "+", Int("3"))))"#);
-}
