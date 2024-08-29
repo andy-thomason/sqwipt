@@ -16,7 +16,9 @@ fn test_lex() {
     lex!("\"xyz\"", Token::Str("\"xyz\""));
     lex!("'xyz'", Token::Str("'xyz'"));
     lex!(r#"'xyz\''"#, Token::Str(r#"'xyz\''"#));
-    lex!("\"xyz", Token::UnterminatedString("\"xyz"));
+    lex!(r#""xyz""#, Token::Str(r#""xyz""#));
+    lex!(r#""hello world""#, Token::Str(r#""hello world""#));
+    lex!(r#""xyz"#, Token::UnterminatedString("\"xyz"));
     // let mut lex = Lex::new(r#"
     //     struct Bert a b c d
 

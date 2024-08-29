@@ -1,0 +1,12 @@
+
+fib = |n|
+    a = 1
+    b = 1
+    (0..n).for_each(|_|
+        t = a + b
+        a = b
+    )
+    a
+
+print("{fib(1)}")
+print("{fib(10)}")

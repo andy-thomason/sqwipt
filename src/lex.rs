@@ -68,6 +68,14 @@ impl<'a> Lex<'a> {
         &self.peek
     }
 
+    pub fn is_eof(&self) -> bool {
+        matches!(self.peek, Token::Eof(_))
+    }
+
+    pub fn is_newline(&self) -> bool {
+        matches!(self.peek, Token::Newline(_))
+    }
+
     pub fn advance(&mut self) -> Span<'a> {
         let span = self.span();
         self.peek = self.next();
@@ -156,8 +164,13 @@ impl<'a> Lex<'a> {
                 }
                 b'"'| b'\'' => {
                     let terminator = bytes[pos];
-                    if let Some(pos) = bytes[pos+1..].windows(2).position(|s| s[0] != b'\\' && s[1] == terminator) {
-                        self.pos = pos + 3;
+                    println!("t={:02x}", terminator);
+                    if bytes[pos+1] == terminator {
+                        self.pos += 2;
+                        Token::Str(&self.src[start..self.pos])
+                    } else if let Some(pos) = bytes[pos+1..].windows(2).position(|s| s[0] != b'\\' && s[1] == terminator) {
+                        println!("pos={pos}");
+                        self.pos = self.pos + pos + 2;
                         Token::Str(&self.src[start..self.pos])
                     } else {
                         self.pos = bytes.len();

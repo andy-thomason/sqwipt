@@ -1,4 +1,10 @@
-use crate::lex::{Lex, Token, Span};
+use crate::lex::{Lex, Span, Token};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Programme<'a> {
+    Bad(),
+    Good(Vec<Expr<'a>>),
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block<'a> {
@@ -9,7 +15,12 @@ pub struct Block<'a> {
 
 impl<'a> core::fmt::Display for Closure<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Closure { open, formal_args, close, body } = self;
+        let Closure {
+            open,
+            formal_args,
+            close,
+            body,
+        } = self;
         write!(f, "{open}")?;
         for (arg, sep) in formal_args {
             write!(f, "{arg}")?;
@@ -68,7 +79,12 @@ pub enum Expr<'a> {
     Unary(Span<'a>, Box<Expr<'a>>),
     Paren(Span<'a>, Box<Expr<'a>>, Span<'a>),
     Tuple(Span<'a>, Vec<(Expr<'a>, Option<Span<'a>>)>, Span<'a>),
-    Call(Box<Expr<'a>>, Span<'a>, Vec<(Expr<'a>, Option<Span<'a>>)>, Span<'a>),
+    Call(
+        Box<Expr<'a>>,
+        Span<'a>,
+        Vec<(Expr<'a>, Option<Span<'a>>)>,
+        Span<'a>,
+    ),
     Index(Box<Expr<'a>>, Span<'a>, Box<Expr<'a>>, Span<'a>),
     Dot(Box<Expr<'a>>, Span<'a>, Box<Expr<'a>>),
     Bad(Span<'a>),
@@ -80,7 +96,7 @@ pub struct ParseError<'a> {
     reason: &'static str,
 }
 
-pub trait Parse<'l, 'a> : Sized {
+pub trait Parse<'l, 'a>: Sized {
     // Return either Some(item) or None if it cannot be one from
     // the first token.
     //
@@ -94,20 +110,18 @@ impl<'l, 'a> Parse<'l, 'a> for Expr<'a> {
     fn parse(lex: &'l mut Lex<'a>) -> Option<Self> {
         // println!("Expr::parse {:?}", lex.peek());
         match lex.peek() {
-            Token::Begin(_) |
-            Token::Punct("+") |
-            Token::Punct("-") |
-            Token::Punct("!") |
-            Token::Punct("|") |
-            Token::Punct("(") |
-            Token::Int(_) |
-            Token::Float(_) |
-            Token::Hex(_) |
-            Token::Ident(_) |
-            Token::Str(_) => {
-                Some(parse_binop(lex, 0))
-            }
-            _ => None
+            Token::Begin(_)
+            | Token::Punct("+")
+            | Token::Punct("-")
+            | Token::Punct("!")
+            | Token::Punct("|")
+            | Token::Punct("(")
+            | Token::Int(_)
+            | Token::Float(_)
+            | Token::Hex(_)
+            | Token::Ident(_)
+            | Token::Str(_) => Some(parse_binop(lex, 0)),
+            _ => None,
         }
     }
 }
@@ -115,14 +129,12 @@ impl<'l, 'a> Parse<'l, 'a> for Expr<'a> {
 /// |x, y=5, z: u64 = 3| x + y + z
 fn parse_closure<'a>(lex: &mut Lex<'a>) -> Expr<'a> {
     macro_rules! expect {
-        ($token : pat) => {
-            {
-                if !matches!(lex.peek(), $token) {
-                    return Expr::Bad(lex.advance());
-                }
-                lex.advance()
+        ($token : pat) => {{
+            if !matches!(lex.peek(), $token) {
+                return Expr::Bad(lex.advance());
             }
-        };
+            lex.advance()
+        }};
     }
 
     let open = expect!(Token::Punct("|"));
@@ -158,17 +170,16 @@ fn parse_block<'a>(lex: &mut Lex<'a>) -> Expr<'a> {
         } else if matches!(lex.peek(), Token::End(_)) || matches!(lex.peek(), Token::Eof(_)) {
             break;
         } else {
-            lex.error(lex.span(), format!("expected newline or ; got {:?}", lex.peek()));
+            lex.error(
+                lex.span(),
+                format!("expected newline or ; got {:?}", lex.peek()),
+            );
             items.push(Expr::Bad(lex.advance()));
         }
     }
     if matches!(lex.peek(), Token::End(_)) {
         let end = lex.advance();
-        Expr::Block(Block {
-            begin,
-            items,
-            end,
-        })
+        Expr::Block(Block { begin, items, end })
     } else {
         let bad = lex.advance();
         lex.error(bad.clone(), format!("expected closing scope."));
@@ -195,7 +206,7 @@ fn parse_binop<'a>(lex: &mut Lex<'a>, min_precidence: usize) -> Expr<'a> {
             break lhs;
         } else {
             let span = lex.advance();
-            let rhs = parse_binop(lex, precidence+1);
+            let rhs = parse_binop(lex, precidence + 1);
             lhs = Expr::Binary(Box::new(lhs), span, Box::new(rhs));
         }
     }
@@ -207,15 +218,9 @@ fn parse_binop<'a>(lex: &mut Lex<'a>, min_precidence: usize) -> Expr<'a> {
 fn parse_atom<'a>(lex: &mut Lex<'a>) -> Expr<'a> {
     println!("parse_atom {:?}", lex.peek());
     let mut prefix = match lex.peek() {
-        Token::Punct("|") => {
-            parse_closure(lex)
-        }
-        Token::Begin(_) => {
-            parse_block(lex)
-        }
-        Token::Punct("!") |
-        Token::Punct("+") |
-        Token::Punct("-") => {
+        Token::Punct("|") => parse_closure(lex),
+        Token::Begin(_) => parse_block(lex),
+        Token::Punct("!") | Token::Punct("+") | Token::Punct("-") => {
             Expr::Unary(lex.advance(), Box::new(parse_atom(lex)))
         }
         Token::Punct("(") => {
@@ -228,25 +233,15 @@ fn parse_atom<'a>(lex: &mut Lex<'a>) -> Expr<'a> {
                 Expr::Tuple(lparen, args, parse_close(lex, ")"))
             }
         }
-        Token::Ident(_) => {
-            Expr::Ident(lex.advance())
-        }
-        Token::Int(_) => {
-            Expr::Int(lex.advance())
-        }
-        Token::Float(_) => {
-            Expr::Float(lex.advance())
-        }
-        Token::Hex(_) => {
-            Expr::Hex(lex.advance())
-        }
-        Token::Str(_) => {
-            Expr::Str(lex.advance())
-        }
+        Token::Ident(_) => Expr::Ident(lex.advance()),
+        Token::Int(_) => Expr::Int(lex.advance()),
+        Token::Float(_) => Expr::Float(lex.advance()),
+        Token::Hex(_) => Expr::Hex(lex.advance()),
+        Token::Str(_) => Expr::Str(lex.advance()),
         _ => {
             let span = lex.advance();
             lex.error(span.clone(), format!("parse_atom"));
-            return Expr::Bad(span)
+            return Expr::Bad(span);
         }
     };
     loop {
@@ -268,7 +263,7 @@ fn parse_atom<'a>(lex: &mut Lex<'a>) -> Expr<'a> {
                 let rhs = parse_atom(lex);
                 Expr::Dot(Box::new(prefix), lspan, Box::new(rhs))
             }
-            _ => return prefix
+            _ => return prefix,
         }
     }
 }
@@ -277,8 +272,7 @@ fn parse_atom<'a>(lex: &mut Lex<'a>) -> Expr<'a> {
 fn parse_args<'a>(lex: &mut Lex<'a>) -> Vec<(Expr<'a>, Option<Span<'a>>)> {
     let mut args = vec![];
     while lex.peek() != &Token::Punct(")") {
-        let expr = Expr::parse(lex)
-            .unwrap_or_else(|| Expr::Bad(lex.advance()));
+        let expr = Expr::parse(lex).unwrap_or_else(|| Expr::Bad(lex.advance()));
         if lex.peek() == &Token::Punct(",") {
             args.push((expr, Some(lex.advance())));
         } else {
@@ -321,3 +315,17 @@ fn parse_close<'a>(lex: &mut Lex<'a>, closer: &'static str) -> Span<'a> {
     }
 }
 
+pub fn parse_programme<'a>(lex: &mut Lex<'a>) -> Programme<'a> {
+    let mut exprs = vec![];
+    while !lex.is_eof() {
+        while lex.is_newline() {
+            lex.advance();
+        }
+        let Some(expr) = Expr::parse(lex) else {
+            lex.error(lex.span(), format!("Unexpected token"));
+            return Programme::Bad();
+        };
+        exprs.push(expr);
+    }
+    Programme::Good(exprs)
+}
